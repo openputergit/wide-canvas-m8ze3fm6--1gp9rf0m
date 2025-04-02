@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Blockchain Mining Dashboard</title>
+    <script src="https://unpkg.com/web3@1.6.0/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="bg-blue-50" x-data="miningDashboard()">
+    <div class="min-h-screen p-4">
+        <!-- Header -->
+        <header class="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h1 class="text-xl sm:text-2xl font-bold text-blue-600">Blockchain Mining Dashboard</h1>
+                <div class="flex flex-wrap gap-4">
+                    <button x-show="!walletConnected" @click="connectSolanaWallet()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+                        <i class="bi bi-wallet2"></i> Connect Solana Wallet
+                    </button>
+                    <div x-show="walletConnected" class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">
+                        <i class="bi bi-wallet2"></i> <span x-text="walletAddress"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Mining Stats -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4">Mining Statistics</h2>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span>Hash Rate:</span>
+                        <span x-text="stats.hashRate + ' H/s'"></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Active Workers:</span>
+                        <span x-text="stats.activeWorkers"></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Daily Earnings:</span>
+                        <span x-text="stats.dailyEarnings + ' SOL'"></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Total Mined:</span>
+                        <span x-text="stats.totalMined + ' SOL'"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mining Chart -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4">Mining Performance</h2>
+                <canvas id="miningChart"></canvas>
+            </div>
+
+            <!-- Mining Controls -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4">Mining Controls</h2>
+                <div class="space-y-4">
+                    <button 
+                        x-show="!mining"
+                        @click="startMining()"
+                        class="w-full bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
+                        <i class="bi bi-play-circle"></i> Start Mining
+                    </button>
+                    <button 
+                        x-show="mining"
+                        @click="stopMining()"
+                        class="w-full bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
+                        <i class="bi bi-stop-circle"></i> Stop Mining
+                    </button>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Mining Pool</label>
+                        <select x-model="selectedPool" class="w-full border rounded-lg p-2">
+                            <template x-for="pool in pools" :key="pool.id">
+                                <option :value="pool.id" x-text="pool.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Mining Power</label>
+                        <input type="range" x-model="miningPower" min="1" max="100" class="w-full">
+                        <div class="text-center text-sm text-gray-600" x-text="`${miningPower}%`"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4">Transaction History</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-4 py-2 text-left">Date</th>
+                            <th class="px-4 py-2 text-left">Type</th>
+                            <th class="px-4 py-2 text-left">Amount</th>
+                            <th class="px-4 py-2 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="tx in transactions" :key="tx.id">
+                            <tr>
+                                <td class="border-t px-4 py-2" x-text="tx.date"></td>
+                                <td class="border-t px-4 py-2" x-text="tx.type"></td>
+                                <td class="border-t px-4 py-2" x-text="tx.amount + ' SOL'"></td>
+                                <td class="border-t px-4 py-2">
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full" x-text="tx.status"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function miningDashboard() {
+            return {
+                mining: false,
+                walletConnected: false,
+                walletAddress: '',
+                selectedPool: 'pool1',
+                miningPower: 50,
+                stats: {
+                    hashRate: 0,
+                    activeWorkers: 0,
+                    dailyEarnings: 0,
+                    totalMined: 0
+                },
+                pools: [
+                    { id: 'pool1', name: 'Solana Main Pool' },
+                    { id: 'pool2', name: 'SolMiner Pool' },
+                    { id: 'pool3', name: 'Community Pool' }
+                ],
+                transactions: [],
+                chart: null,
+
+                async init() {
+                    this.initChart();
+                    this.checkWalletConnection();
+                },
+
+                async connectSolanaWallet() {
+                    try {
+                        if (!window.solana) {
+                            alert('Please install Phantom wallet!');
+                            return;
+                        }
+
+                        await window.solana.connect();
+                        const publicKey = window.solana.publicKey.toString();
+                        this.walletConnected = true;
+                        this.walletAddress = `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`;
+                    } catch (error) {
+                        console.error('Wallet connection failed:', error);
+                        alert('Failed to connect wallet. Please try again.');
+                    }
+                },
+
+                async checkWalletConnection() {
+                    if (window.solana?.isConnected) {
+                        const publicKey = window.solana.publicKey.toString();
+                        this.walletConnected = true;
+                        this.walletAddress = `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`;
+                    }
+                },
+
+                initChart() {
+                    const ctx = document.getElementById('miningChart').getContext('2d');
+                    this.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: Array(24).fill('').map((_, i) => `${i}:00`),
+                            datasets: [{
+                                label: 'Hash Rate',
+                                data: Array(24).fill(0),
+                                borderColor: 'rgb(59, 130, 246)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                },
+
+                startMining() {
+                    if (!this.walletConnected) {
+                        alert('Please connect your wallet first!');
+                        return;
+                    }
+                    this.mining = true;
+                    this.simulateMining();
+                },
+
+                stopMining() {
+                    this.mining = false;
+                },
+
+                simulateMining() {
+                    if (!this.mining) return;
+
+                    // Update stats based on mining power
+                    const powerFactor = this.miningPower / 100;
+                    this.stats.hashRate = Math.floor((Math.random() * 1000 + 500) * powerFactor);
+                    this.stats.activeWorkers = Math.floor(Math.random() * 5 * powerFactor) + 1;
+                    this.stats.dailyEarnings = (this.stats.hashRate * 0.0001).toFixed(4);
+                    this.stats.totalMined = (parseFloat(this.stats.totalMined) + parseFloat(this.stats.dailyEarnings) * 0.001).toFixed(4);
+
+                    // Update chart
+                    const newData = [...this.chart.data.datasets[0].data.slice(1), this.stats.hashRate];
+                    this.chart.data.datasets[0].data = newData;
+                    this.chart.update();
+
+                    // Add random transaction
+                    if (Math.random() > 0.8) {
+                        this.addTransaction();
+                    }
+
+                    setTimeout(() => this.simulateMining(), 1000);
+                },
+
+                addTransaction() {
+                    const tx = {
+                        id: Date.now(),
+                        date: new Date().toLocaleString(),
+                        type: 'Mining Reward',
+                        amount: (Math.random() * 0.1).toFixed(4),
+                        status: 'Confirmed'
+                    };
+
+                    this.transactions.unshift(tx);
+                    if (this.transactions.length > 5) {
+                        this.transactions.pop();
+                    }
+                }
+            }
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
